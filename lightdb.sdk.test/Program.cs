@@ -1,34 +1,88 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using lightdb.sdk;
+using System;
+using System.IO;
 using System.Threading.Tasks;
-namespace thinsdk.neo.test
+
+namespace lightdb.testclient
 {
     class Program
     {
+
+        static lightdb.sdk.WebsocketBase client = new sdk.WebsocketBase();
+
         static void Main(string[] args)
         {
-            string wif = "L2CmHCqgeNHL1i9XFhTLzUXsdr5LGjag4d56YY98FqEi4j5d83Mv";
-            var prikey = ThinNeo.Helper_NEO.GetPrivateKeyFromWIF(wif);
-            var pubkey = ThinNeo.Helper_NEO.GetPublicKey_FromPrivateKey(prikey);
-            var address = ThinNeo.Helper_NEO.GetAddress_FromPublicKey(pubkey);
-            var datastr = "010203ff1122abcd";
-            var data = ThinNeo.Helper.HexString2Bytes(datastr);
-            var sign = ThinNeo.Helper_NEO.Sign(data, prikey);
-            var signstr = ThinNeo.Helper.Bytes2HexString(sign);
-            var check = ThinNeo.Helper_NEO.VerifySignature(data, sign, pubkey);
-
-
-            Console.WriteLine("wif=" + wif);
-            Console.WriteLine("prikey=" + ThinNeo.Helper.Bytes2HexString(prikey));
-            Console.WriteLine("pubkey=" + ThinNeo.Helper.Bytes2HexString(pubkey));
-            Console.WriteLine("address=" + address);
-            Console.WriteLine("data=" + datastr);
-            Console.WriteLine("signstr=" + signstr);
-            Console.WriteLine("check=" + check);
-
-            Console.ReadLine();
+            TaskScheduler.UnobservedTaskException += (s, e) =>
+              {
+                  Console.WriteLine("error on ============>" + e.ToString());
+              };
+            StartClient();
+            Loops();
         }
+        static async void Loops()
+        {
+
+
+            Console.WriteLine("Hello World!");
+            while (true)
+            {
+                Console.Write(">");
+                var line = Console.ReadLine();
+                if (line == "exit")
+                {
+                    Environment.Exit(0);
+                    return;
+
+                }
+                if (line == "ping")
+                {
+                    try
+                    {
+                        var pingms = client.PostPing();
+                        Console.WriteLine("ping=" + pingms);
+                        //Task.WaitAll(ping());
+                    }
+                    catch (Exception err)
+                    {
+                        Console.WriteLine("error on ping.");
+                    }
+                    continue;
+                }
+                if (line == "db.state")
+                {
+                    var msg =  client.Post_getdbstate();
+                    Console.WriteLine("msg. open=" + msg.dbopen);
+                    Console.WriteLine("height=" + msg.height);
+                    foreach(var w in msg.writer)
+                    {
+                        Console.WriteLine("writer=" + w);
+                    }
+                }
+            }
+        }
+
+        static async void StartClient()
+        {
+            client.OnDisconnect += async () =>
+            {
+                Console.WriteLine("OnDisConnect.");
+            };
+            //client.OnRecv_Unknown += async (msg) =>
+            //  {
+            //      Console.WriteLine("got unknown msg:" + msg.Cmd);
+            //  };
+            await client.Connect(new Uri("ws://127.0.0.1:80/ws"));
+            Console.WriteLine("connected.");
+
+            for (var i = 0; i < 100; i++)
+            {
+                var pingms = client.PostPing();
+                Console.WriteLine("ping=" + pingms);
+            }
+        }
+
+
     }
+
+
 }

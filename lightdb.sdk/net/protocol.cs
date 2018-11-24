@@ -2,18 +2,19 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace lightdb.sdk
+namespace LightDB.SDK
 {
     public static class protocol_Helper
     {
-        public static NetMessage PostMsg(this WebsocketBase socket, sdk.NetMessage msg)
+
+        public static NetMessage PostMsg(this WebsocketBase socket, LightDB.SDK.NetMessage msg)
         {
             NetMessage __msg = null;
             socket.SendWithOnceCallback(msg, async (msgback) =>
             {
                 __msg = msgback;
             });
-            while (__msg == null)
+            while (socket.Connected && __msg == null)
             {
                 System.Threading.Thread.Sleep(1);
             }
@@ -33,7 +34,7 @@ namespace lightdb.sdk
 
         public static NetMessage CreateSendMsg()
         {
-            var msg = sdk.NetMessage.Create("_ping");
+            var msg = LightDB.SDK.NetMessage.Create("_ping");
             return msg;
         }
 
@@ -58,11 +59,11 @@ namespace lightdb.sdk
         }
     }
 
-    public static class protocol_getdbstate
+    public static class protocol_GetDBState
     {
         public static NetMessage CreateSendMsg()
         {
-            var msg = sdk.NetMessage.Create("_db.state");
+            var msg = LightDB.SDK.NetMessage.Create("_db.state");
             return msg;
         }
         public class message
@@ -78,13 +79,13 @@ namespace lightdb.sdk
                 message data = new message();
                 if (msg.Params["dbopen"][0] == 1)
                     data.dbopen = true;
-                if(data.dbopen)
+                if (data.dbopen)
                 {
                     data.height = BitConverter.ToUInt64(msg.Params["height"], 0);
                 }
-                foreach(var key in msg.Params.Keys)
+                foreach (var key in msg.Params.Keys)
                 {
-                    if(key.IndexOf("writer")==0)
+                    if (key.IndexOf("writer") == 0)
                     {
                         data.writer.Add(msg.Params[key].ToString_UTF8Decode());
                     }
@@ -96,10 +97,256 @@ namespace lightdb.sdk
         }
         public static message Post_getdbstate(this WebsocketBase socket)
         {
-            var msg = protocol_getdbstate.CreateSendMsg();
+            var msg = CreateSendMsg();
             var msgrecv = socket.PostMsg(msg);
-            var s = protocol_getdbstate.PraseRecvMsg(msgrecv);
+            var s = PraseRecvMsg(msgrecv);
             return s;
+        }
+    }
+
+    /// <summary>
+    /// 获取快照协议
+    /// </summary>
+    public static class protocol_UseSnapshot
+    {
+        public static NetMessage CreateSendMsg(UInt64? height = null)
+        {
+            var msg = LightDB.SDK.NetMessage.Create("_db.usesnapshot");
+            if (height != null)
+            {
+                msg.Params["snapheight"] = BitConverter.GetBytes(height.Value);
+            }
+            return msg;
+        }
+        public class message
+        {
+            public UInt64 snapheight;
+        }
+        public static message PraseRecvMsg(NetMessage msg)
+        {
+            if (msg.Cmd == "_db.usesnapshot.back")
+            {
+                message data = new message();
+                data.snapheight = BitConverter.ToUInt64(msg.Params["snapheight"], 0);
+                return data;
+            }
+            else
+                throw new Exception("error message.");
+        }
+        public static message Post_usesnapshot(this WebsocketBase socket, UInt64? height = null)
+        {
+            var msg = CreateSendMsg(height);
+            var msgrecv = socket.PostMsg(msg);
+            var s = PraseRecvMsg(msgrecv);
+            return s;
+        }
+    }
+    public static class protocol_UnuseSnapshot
+    {
+        public static NetMessage CreateSendMsg(UInt64 height)
+        {
+            var msg = LightDB.SDK.NetMessage.Create("_db.unusesnapshot");
+            msg.Params["snapheight"] = BitConverter.GetBytes(height);
+            return msg;
+        }
+        public class message
+        {
+            public bool remove;
+        }
+        public static message PraseRecvMsg(NetMessage msg)
+        {
+            if (msg.Cmd == "_db.unusesnapshot.back")
+            {
+                message data = new message();
+                data.remove = msg.Params["remove"][0] > 0;
+                return data;
+            }
+            else
+                throw new Exception("error message.");
+        }
+        public static message Post_unusesnapshot(this WebsocketBase socket, UInt64 height)
+        {
+            var msg = CreateSendMsg(height);
+            var msgrecv = socket.PostMsg(msg);
+            var s = PraseRecvMsg(msgrecv);
+            return s;
+        }
+    }
+    public static class protocol_SnapshotDataHeight
+    {
+        public static NetMessage CreateSendMsg(UInt64 height)
+        {
+            var msg = LightDB.SDK.NetMessage.Create("_db.snapshot.dataheight");
+            msg.Params["snapheight"] = BitConverter.GetBytes(height);
+            return msg;
+        }
+        public class message
+        {
+            public UInt64 dataheight;
+        }
+        public static message PraseRecvMsg(NetMessage msg)
+        {
+            if (msg.Cmd == "_db.snapshot.dataheight.back")
+            {
+                message data = new message();
+                data.dataheight = BitConverter.ToUInt64(msg.Params["dataheight"], 0);
+                return data;
+            }
+            else
+                throw new Exception("error message.");
+        }
+        public static message Post_snapshot_dataheight(this WebsocketBase socket, UInt64 height)
+        {
+            var msg = CreateSendMsg(height);
+            var msgrecv = socket.PostMsg(msg);
+            var s = PraseRecvMsg(msgrecv);
+            return s;
+        }
+    }
+    public static class protocol_SnapshotGetValue
+    {
+        public static NetMessage CreateSendMsg(UInt64 snapid, byte[] tableid, byte[] key)
+        {
+            var msg = LightDB.SDK.NetMessage.Create("_db.snapshot.getvalue");
+            msg.Params["snapheight"] = BitConverter.GetBytes(snapid);
+            msg.Params["tableid"] = tableid;
+            msg.Params["key"] = key;
+            return msg;
+        }
+        public class message
+        {
+            public byte[] data;
+        }
+        public static message PraseRecvMsg(NetMessage msg)
+        {
+            if (msg.Cmd == "_db.snapshot.getvalue.back")
+            {
+                message data = new message();
+                data.data = msg.Params["data"];
+                return data;
+            }
+            else
+                throw new Exception("error message.");
+        }
+        public static message Post_snapshot_getvalue(this WebsocketBase socket, UInt64 snapid, byte[] tableid, byte[] key)
+        {
+            var msg = CreateSendMsg(snapid, tableid, key);
+            var msgrecv = socket.PostMsg(msg);
+            var s = PraseRecvMsg(msgrecv);
+            return s;
+        }
+    }
+    public static class protocol_SnapshotGetBlock
+    {
+        public static NetMessage CreateSendMsg(UInt64 snapid, UInt64 blockid)
+        {
+            var msg = LightDB.SDK.NetMessage.Create("_db.snapshot.getblock");
+            msg.Params["snapheight"] = BitConverter.GetBytes(snapid);
+            msg.Params["blockid"] = BitConverter.GetBytes(blockid);
+            return msg;
+        }
+        public class message
+        {
+            public byte[] data;
+        }
+        public static message PraseRecvMsg(NetMessage msg)
+        {
+            if (msg.Cmd == "_db.snapshot.getblock.back")
+            {
+                message data = new message();
+                data.data = msg.Params["data"];
+                return data;
+            }
+            else
+                throw new Exception("error message.");
+        }
+        public static message Post_snapshot_getblock(this WebsocketBase socket, UInt64 snapid, UInt64 blockid)
+        {
+            var msg = CreateSendMsg(snapid, blockid);
+            var msgrecv = socket.PostMsg(msg);
+            var s = PraseRecvMsg(msgrecv);
+            return s;
+        }
+    }
+    public static class protocol_SnapshotGetBlockHash
+    {
+        public static NetMessage CreateSendMsg(UInt64 snapid, UInt64 blockid)
+        {
+            var msg = LightDB.SDK.NetMessage.Create("_db.snapshot.getblockhash");
+            msg.Params["snapheight"] = BitConverter.GetBytes(snapid);
+            msg.Params["blockid"] = BitConverter.GetBytes(blockid);
+            return msg;
+        }
+        public class message
+        {
+            public byte[] data;
+        }
+        public static message PraseRecvMsg(NetMessage msg)
+        {
+            if (msg.Cmd == "_db.snapshot.getblockhash.back")
+            {
+                message data = new message();
+                data.data = msg.Params["data"];
+                return data;
+            }
+            else
+                throw new Exception("error message.");
+        }
+        public static message Post_snapshot_getblockhash(this WebsocketBase socket, UInt64 snapid, UInt64 blockid)
+        {
+            var msg = CreateSendMsg(snapid, blockid);
+            var msgrecv = socket.PostMsg(msg);
+            var s = PraseRecvMsg(msgrecv);
+            return s;
+        }
+    }
+    public static class protocol_SnapshotGetWriter
+    {
+        public static NetMessage CreateSendMsg(UInt64 snapid)
+        {
+            var msg = LightDB.SDK.NetMessage.Create("_db.snapshot.getwriter");
+            msg.Params["snapheight"] = BitConverter.GetBytes(snapid);
+            return msg;
+        }
+        public class message
+        {
+            public List<string> writer;
+        }
+        public static message PraseRecvMsg(NetMessage msg)
+        {
+            if (msg.Cmd == "_db.snapshot.getwriter.back")
+            {
+                message data = new message();
+                data.writer = new List<string>();
+                foreach (var key in msg.Params.Keys)
+                {
+                    if (key.IndexOf("writer") == 0)
+                    {
+                        data.writer.Add(msg.Params[key].ToString_UTF8Decode());
+                    }
+                }
+                return data;
+            }
+            else
+                throw new Exception("error message.");
+        }
+        public static message Post_snapshot_getwriter(this WebsocketBase socket, UInt64 snapid)
+        {
+            var msg = CreateSendMsg(snapid);
+            var msgrecv = socket.PostMsg(msg);
+            var s = PraseRecvMsg(msgrecv);
+            return s;
+        }
+    }
+    /// <summary>
+    /// 写入协议
+    /// </summary>
+    public static class protocol_Write
+    {
+        public static NetMessage CreateSendMsg(LightDB.WriteTask task)
+        {
+            var msg = LightDB.SDK.NetMessage.Create("_db.write");
+            return msg;
         }
     }
 }

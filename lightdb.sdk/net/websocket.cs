@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using System.Linq;
-namespace lightdb.sdk
+namespace LightDB.SDK
 {
     public delegate Task OnClientRecv(NetMessage msg);
     public delegate Task OnDisConnect();
@@ -53,7 +53,7 @@ namespace lightdb.sdk
 
             return;
         }
-        public UInt64 Send(sdk.NetMessage msg)
+        public UInt64 Send(LightDB.SDK.NetMessage msg)
         {
             UInt64 _id = 0;
             lock (this)
@@ -67,7 +67,7 @@ namespace lightdb.sdk
             return _id;
         }
 
-        public void SendWithOnceCallback(sdk.NetMessage msg, OnClientRecv callback)
+        public void SendWithOnceCallback(LightDB.SDK.NetMessage msg, OnClientRecv callback)
         {
             var _id = Send(msg);
             this.mapRecv[_id] = callback;

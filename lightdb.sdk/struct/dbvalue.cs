@@ -32,7 +32,7 @@ namespace LightDB
         {
 
         }
-        public static bool BytesEqualWithoutHeight(byte[] a,byte[] b)
+        public static bool BytesEqualWithoutHeight(byte[] a, byte[] b)
         {
             if (ReferenceEquals(a, b))
                 return true;
@@ -44,27 +44,50 @@ namespace LightDB
                 return false;
 
             var tagLength = a[1];
-            for (var i=0;i<a.Length;i++)
+            for (var i = 0; i < a.Length; i++)
             {
                 if (a[i] != b[i])
                     return false;
-                if(i>=tagLength+2&& i<tagLength+2+8)
+                if (i >= tagLength + 2 && i < tagLength + 2 + 8)
                 {
                     continue;
                 }
             }
             return true;
         }
-        public static void QuickFixHeight(byte[] data,byte[] heightbuf)
+        public static byte[] QuickFixHeight(byte[] data, byte[] heightbuf)
         {
+            int seek = 0;
+
+            //type
             //var v = data[0];
-            var tagLength = data[1];
-            //var timestamp = BitConverter.ToUInt64(data, 2 + taglength);
-            for(var i=0;i<8;i++)
+            seek++;
+
+            //tag
+            var tagLength = data[seek]; seek++;
+            seek += tagLength;
+
+            //data
+            var datalen = BitConverter.ToUInt32(data, seek); seek += 4;
+            seek += (int)datalen;
+
+
+            //timestep
+            if (seek == data.Length)//add 8 byte
             {
-                data[tagLength + 2 + i] = heightbuf[i];
+                byte[] newdata = new byte[data.Length + 8];
+                for(var i=0;i<data.Length;i++)
+                {
+                    newdata[i] = data[i];
+                }
+                data = newdata;
             }
-            //var timestamp2 = BitConverter.ToUInt64(data, 2 + taglength);
+            for (var i = 0; i < 8; i++)
+            {
+                data[seek + i] = heightbuf[i];
+            }
+
+            return data;
         }
         public static byte[] QuickGetHeight(byte[] data)
         {
@@ -148,50 +171,63 @@ namespace LightDB
         }
         public static DBValue FromRaw(byte[] data)
         {
-            if (data == null||data.Length==0)
+            if (data == null || data.Length == 0)
                 return null;
             DBValue v = new DBValue();
+            int seek = 0;
             //read type
-            v.type = (Type)data[0];
+            v.type = (Type)data[seek]; seek++;
             //read tag
-            v.tag = new byte[data[1]];
+            v.tag = new byte[data[seek]]; seek++;
             for (var i = 0; i < v.tag.Length; i++)
             {
-                v.tag[i] = data[i + 2];
+                v.tag[i] = data[seek]; seek++;
             }
-            //read last
-            v.lastHeight = BitConverter.ToUInt64(data, 2 + v.tag.Length);
-
             //read value
-            v.value = new byte[data.Length - 2 - v.tag.Length - 8];
+            UInt32 datalen = BitConverter.ToUInt32(data, seek); seek += 4;
+            v.value = new byte[datalen];
             for (var i = 0; i < v.value.Length; i++)
             {
-                v.value[i] = data[2 + v.tag.Length + 8 + i];
+                v.value[i] = data[seek]; seek++;
+            }
+            if (seek < data.Length)
+            {
+                //read last
+                v.lastHeight = BitConverter.ToUInt64(data, seek); seek += 8;
             }
             v.ParseValue();
             return v;
         }
-        public byte[] ToBytes()
+        public byte[] ToBytes(bool withLast)
         {
-            byte[] data = new byte[2 + this.tag.Length + 8 + this.value.Length];
+            byte[] data = new byte[2 + this.tag.Length + 4 + this.value.Length + 8];
+            int seek = 0;
             //write type
-            data[0] = (byte)this.type;
+            data[seek] = (byte)this.type; seek++;
             //write tag
-            data[1] = (byte)this.tag.Length;
+            data[seek] = (byte)this.tag.Length; seek++;
             for (var i = 0; i < this.tag.Length; i++)
             {
-                data[i + 2] = this.tag[i];
-            }
-            //write last
-            byte[] last = BitConverter.GetBytes(this.lastHeight);
-            for (var i = 0; i < 8; i++)
-            {
-                data[2 + this.tag.Length + i] = last[i];
+                data[seek] = this.tag[i]; seek++;
             }
             //write value;
+            var datalen = BitConverter.GetBytes((UInt32)this.value.Length);
+            for (var i = 0; i < 4; i++)
+            {
+                data[seek] = datalen[i]; seek++;
+            }
             for (var i = 0; i < this.value.Length; i++)
             {
-                data[2 + this.tag.Length + 8 + i] = this.value[i];
+                data[seek] = this.value[i]; seek++;
+            }
+            //write last
+            if (withLast)
+            {
+                byte[] last = BitConverter.GetBytes(this.lastHeight);
+                for (var i = 0; i < 8; i++)
+                {
+                    data[seek] = last[i]; seek++;
+                }
             }
             return data;
         }
@@ -205,7 +241,7 @@ namespace LightDB
                 case Type.Bytes:
                     break;
                 case Type.INT32:
-                    typedvalue = BitConverter.ToInt32(this.value,0);
+                    typedvalue = BitConverter.ToInt32(this.value, 0);
                     break;
                 case Type.UINT32:
                     typedvalue = BitConverter.ToUInt32(this.value, 0);

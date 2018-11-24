@@ -94,7 +94,7 @@ namespace LightDB
                         op = WriteTaskOP.CreateTable,
                         tableID = info.tableid,
                         key = null,
-                        value = DBValue.FromValue(DBValue.Type.Bytes, info.ToBytes()).ToBytes()
+                        value = DBValue.FromValue(DBValue.Type.Bytes, info.ToBytes()).ToBytes(false)
                     }
                 );
         }
@@ -124,7 +124,7 @@ namespace LightDB
         }
         public void Put(byte[] tableid, byte[] key, DBValue value)
         {
-            PutUnsafe(tableid, key, value.ToBytes());
+            PutUnsafe(tableid, key, value.ToBytes(false));
         }
         public void Delete(byte[] tableid, byte[] key)
         {
@@ -138,16 +138,29 @@ namespace LightDB
                     }
                 );
         }
+        public void FixHeight(UInt64 height)
+        {
+            var heightbuf = BitConverter.GetBytes(height);
 
+            foreach (var item in this.items)
+            {
+                if (item.value != null)
+                {
+                    item.value = DBValue.QuickFixHeight(item.value, heightbuf);
+                }
+            }
+        }
         public void Pack(System.IO.Stream stream)
         {
             var extcount = this.extData == null ? 0 : extData.Count;
             if (extcount > 255)
                 throw new Exception("too mush ExtData.");
+
             if (items.Count == 0 || items.Count > 65535)
             {
                 throw new Exception("too mush items or no item.");
             }
+            //pack extdata
             stream.WriteByte((byte)extcount);
             if (extcount > 0)
             {
@@ -163,6 +176,7 @@ namespace LightDB
                     stream.Write(v, 0, v.Length);
                 }
             }
+            //pack item
             byte[] numitem = BitConverter.GetBytes((UInt16)items.Count);
             stream.Write(numitem, 0, 2);
             for (var i = 0; i < items.Count; i++)
@@ -183,7 +197,7 @@ namespace LightDB
                 var numkey = stream.ReadByte();
                 byte[] bufnum = new byte[4];
                 var numv = stream.Read(bufnum, 0, 4);
-                UInt32 numValue = BitConverter.ToUInt32(bufnum,0);
+                UInt32 numValue = BitConverter.ToUInt32(bufnum, 0);
                 byte[] bufv = new byte[Math.Max(numkey, numValue)];
                 stream.Read(bufv, 0, numkey);
                 var strkey = System.Text.Encoding.UTF8.GetString(bufv, 0, numkey);

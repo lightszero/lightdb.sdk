@@ -40,13 +40,17 @@ namespace LightDB.SDK
 
         public static bool PraseRecvMsg(NetMessage msg)
         {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
             if (msg.Cmd == "_ping.back")
                 return true;
             else
                 throw new Exception("error message.");
         }
 
-        public static int PostPing(this WebsocketBase socket)
+        public static int Post_Ping(this WebsocketBase socket)
         {
             DateTime t0 = DateTime.Now;
 
@@ -74,6 +78,10 @@ namespace LightDB.SDK
         }
         public static message PraseRecvMsg(NetMessage msg)
         {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
             if (msg.Cmd == "_db.state.back")
             {
                 message data = new message();
@@ -124,6 +132,10 @@ namespace LightDB.SDK
         }
         public static message PraseRecvMsg(NetMessage msg)
         {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
             if (msg.Cmd == "_db.usesnapshot.back")
             {
                 message data = new message();
@@ -155,6 +167,10 @@ namespace LightDB.SDK
         }
         public static message PraseRecvMsg(NetMessage msg)
         {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
             if (msg.Cmd == "_db.unusesnapshot.back")
             {
                 message data = new message();
@@ -186,6 +202,10 @@ namespace LightDB.SDK
         }
         public static message PraseRecvMsg(NetMessage msg)
         {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
             if (msg.Cmd == "_db.snapshot.dataheight.back")
             {
                 message data = new message();
@@ -219,6 +239,10 @@ namespace LightDB.SDK
         }
         public static message PraseRecvMsg(NetMessage msg)
         {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
             if (msg.Cmd == "_db.snapshot.getvalue.back")
             {
                 message data = new message();
@@ -251,6 +275,10 @@ namespace LightDB.SDK
         }
         public static message PraseRecvMsg(NetMessage msg)
         {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
             if (msg.Cmd == "_db.snapshot.getblock.back")
             {
                 message data = new message();
@@ -283,6 +311,10 @@ namespace LightDB.SDK
         }
         public static message PraseRecvMsg(NetMessage msg)
         {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
             if (msg.Cmd == "_db.snapshot.getblockhash.back")
             {
                 message data = new message();
@@ -314,6 +346,10 @@ namespace LightDB.SDK
         }
         public static message PraseRecvMsg(NetMessage msg)
         {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
             if (msg.Cmd == "_db.snapshot.getwriter.back")
             {
                 message data = new message();
@@ -343,10 +379,41 @@ namespace LightDB.SDK
     /// </summary>
     public static class protocol_Write
     {
-        public static NetMessage CreateSendMsg(LightDB.WriteTask task)
+        public static NetMessage CreateSendMsg(byte[] tasksrcdata, SignData signdata)
         {
             var msg = LightDB.SDK.NetMessage.Create("_db.write");
+            msg.Params["taskdata"] = tasksrcdata;
+            msg.Params["signdata"] = signdata.ToBytes();
             return msg;
+        }
+        public class message
+        {
+            public UInt64 blockid;
+            public byte[] blockhash;
+        }
+        public static message PraseRecvMsg(NetMessage msg)
+        {
+            if (msg.Params.ContainsKey("_error"))
+            {
+                throw new Exception("error:" + msg.Params["_error"].ToString_UTF8Decode());
+            }
+            if (msg.Cmd == "_db.write.back")
+            {
+                message data = new message();
+
+                data.blockid = BitConverter.ToUInt64(msg.Params["blockid"], 0);
+                data.blockhash = msg.Params["blockhash"];
+                return data;
+            }
+            else
+                throw new Exception("error message.");
+        }
+        public static message Post_write(this WebsocketBase socket, byte[] tasksrcdata, SignData signdata)
+        {
+            var msg = CreateSendMsg(tasksrcdata, signdata);
+            var msgrecv = socket.PostMsg(msg);
+            var s = PraseRecvMsg(msgrecv);
+            return s;
         }
     }
 }

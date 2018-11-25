@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using ThinNeo.VM;
 
 namespace LightDB.SDK
 {
@@ -74,7 +75,7 @@ namespace LightDB.SDK
         {
             var msglenbuf = new byte[4];
             stream.Read(msglenbuf, 0, 4);
-            UInt32 msglen = BitConverter.ToUInt32(msglenbuf,0);
+            UInt32 msglen = BitConverter.ToUInt32(msglenbuf, 0);
             var posstart = stream.Position;
             NetMessage msg = new NetMessage();
             {//read msg
